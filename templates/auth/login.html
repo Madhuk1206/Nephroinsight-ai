@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In — NephroInsight AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="auth-page">
+    <div class="auth-card">
+        <div class="auth-header">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary); margin-bottom: 12px;">
+                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                <path d="M12 6v12M6 12h12" />
+            </svg>
+            <h2 class="auth-logo">NephroInsight AI</h2>
+            <p style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px;">Chronic
+                Kidney Disease CDSS</p>
+            <p>Welcome. Please log in with your clinical credentials to access the clinical decision support dashboard.
+            </p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="alert-container">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" style="padding: 8px 12px; font-size: 0.85rem;">
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('auth.login', next=request.args.get('next')) }}" method="POST">
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-input" placeholder="e.g. doctor" required
+                    autofocus>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required>
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 24px;">
+                <input type="checkbox" id="remember" name="remember"
+                    style="width: 16px; height: 16px; cursor: pointer;">
+                <label for="remember" style="font-size: 0.85rem; cursor: pointer; user-select: none;">Remember this
+                    device</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; height: 42px;">Access Dashboard</button>
+        </form>
+
+
+    </div>
+</body>
+
+</html>

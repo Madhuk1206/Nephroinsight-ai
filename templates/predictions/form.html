@@ -1,0 +1,415 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div style="margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1 style="font-size: 1.75rem; margin-bottom: 4px;">Kidney Health Assessment (CDSS)</h1>
+        <p>Attending Patient: <b>{{ patient.name }}</b> (ID: {{ patient.patient_id }} • DOB: {{ patient.dob.strftime('%Y-%m-%d') }} • Gender: {{ patient.gender }})</p>
+    </div>
+    <a href="{{ url_for('patients.view_patient', id=patient.id) }}" class="btn btn-secondary">
+        Back to Profile
+    </a>
+</div>
+
+<div class="form-card">
+    <form action="{{ url_for('predictions.predict', patient_id=patient.id) }}" method="POST">
+        
+        <!-- SECTION 1: Patient Vitals -->
+        <div style="margin-bottom: 32px;">
+            <h3 style="font-size: 1.1rem; border-bottom: 2px solid var(--primary); padding-bottom: 6px; margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+                <span style="background-color: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">1</span>
+                Patient Demographics & Vitals
+            </h3>
+            
+            <div class="clinical-grid">
+                <!-- Age -->
+                <div class="form-group">
+                    <label class="form-label" for="age" title="{{ metadata.age.tooltip }}">
+                        Age (Years)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="age" name="age" class="form-input" 
+                           min="{{ metadata.age.min }}" max="{{ metadata.age.max }}"
+                           placeholder="Range: {{ metadata.age.min }} - {{ metadata.age.max }}"
+                           value="{% if latest_record %}{% if latest_record.age is defined %}{{ latest_record.age }}{% else %}{{ latest_record.get('age', calculated_age) }}{% endif %}{% else %}{{ calculated_age }}{% endif %}" required>
+                    <div class="form-helper">Reference Range: {{ metadata.age.min }} - {{ metadata.age.max }} years</div>
+                </div>
+                
+                <!-- Blood Pressure -->
+                <div class="form-group">
+                    <label class="form-label" for="bp" title="{{ metadata.bp.tooltip }}">
+                        Diastolic Blood Pressure (mmHg)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="bp" name="bp" class="form-input" 
+                           min="{{ metadata.bp.min }}" max="{{ metadata.bp.max }}"
+                           placeholder="Range: {{ metadata.bp.min }} - {{ metadata.bp.max }}"
+                           value="{% if latest_record %}{% if latest_record.bp is defined %}{{ latest_record.bp }}{% else %}{{ latest_record.get('bp', metadata.bp.default) }}{% endif %}{% else %}{{ metadata.bp.default }}{% endif %}" required>
+                    <div class="form-helper">Diastolic resting limit: 50 - 180 mmHg</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SECTION 2: Urine Analysis -->
+        <div style="margin-bottom: 32px;">
+            <h3 style="font-size: 1.1rem; border-bottom: 2px solid var(--primary); padding-bottom: 6px; margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+                <span style="background-color: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">2</span>
+                Urinalysis Markers
+            </h3>
+            
+            <div class="clinical-grid">
+                <!-- Specific Gravity -->
+                <div class="form-group">
+                    <label class="form-label" for="sg" title="{{ metadata.sg.tooltip }}">
+                        Specific Gravity
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="sg" name="sg" class="form-input" required>
+                        {% set active_sg = latest_record.sg if latest_record and latest_record.sg is defined else (latest_record.get('sg', metadata.sg.default) if latest_record else metadata.sg.default) %}
+                        <option value="1.005" {% if active_sg == 1.005 %}selected{% endif %}>1.005 (Dilute)</option>
+                        <option value="1.010" {% if active_sg == 1.010 %}selected{% endif %}>1.010</option>
+                        <option value="1.015" {% if active_sg == 1.015 %}selected{% endif %}>1.015</option>
+                        <option value="1.020" {% if active_sg == 1.020 %}selected{% endif %}>1.020 (Normal)</option>
+                        <option value="1.025" {% if active_sg == 1.025 %}selected{% endif %}>1.025 (Concentrated)</option>
+                    </select>
+                    <div class="form-helper">Kidney urine concentration ability</div>
+                </div>
+                
+                <!-- Albumin -->
+                <div class="form-group">
+                    <label class="form-label" for="al" title="{{ metadata.al.tooltip }}">
+                        Albuminuria Grade
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="al" name="al" class="form-input" required>
+                        {% set active_al = latest_record.al if latest_record and latest_record.al is defined else (latest_record.get('al', metadata.al.default) if latest_record else metadata.al.default) %}
+                        <option value="0" {% if active_al == 0 %}selected{% endif %}>0 (Absent / Normal)</option>
+                        <option value="1" {% if active_al == 1 %}selected{% endif %}>1 (Mild)</option>
+                        <option value="2" {% if active_al == 2 %}selected{% endif %}>2 (Moderate)</option>
+                        <option value="3" {% if active_al == 3 %}selected{% endif %}>3 (Severe)</option>
+                        <option value="4" {% if active_al == 4 %}selected{% endif %}>4 (Very Severe)</option>
+                        <option value="5" {% if active_al == 5 %}selected{% endif %}>5 (Extreme Proteinuria)</option>
+                    </select>
+                    <div class="form-helper">Urine protein secretion score</div>
+                </div>
+                
+                <!-- Sugar -->
+                <div class="form-group">
+                    <label class="form-label" for="su" title="{{ metadata.su.tooltip }}">
+                        Glycosuria Grade
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="su" name="su" class="form-input" required>
+                        {% set active_su = latest_record.su if latest_record and latest_record.su is defined else (latest_record.get('su', metadata.su.default) if latest_record else metadata.su.default) %}
+                        <option value="0" {% if active_su == 0 %}selected{% endif %}>0 (Absent / Normal)</option>
+                        <option value="1" {% if active_su == 1 %}selected{% endif %}>1</option>
+                        <option value="2" {% if active_su == 2 %}selected{% endif %}>2</option>
+                        <option value="3" {% if active_su == 3 %}selected{% endif %}>3</option>
+                        <option value="4" {% if active_su == 4 %}selected{% endif %}>4</option>
+                        <option value="5" {% if active_su == 5 %}selected{% endif %}>5 (Extreme Glucosuria)</option>
+                    </select>
+                    <div class="form-helper">Urine sugar leakage score</div>
+                </div>
+                
+                <!-- Red Blood Cells -->
+                <div class="form-group">
+                    <label class="form-label" for="rbc" title="{{ metadata.rbc.tooltip }}">
+                        Red Blood Cells in Urine
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="rbc" name="rbc" class="form-input" required>
+                        {% set active_rbc = latest_record.rbc if latest_record and latest_record.rbc is defined else (latest_record.get('rbc', metadata.rbc.default) if latest_record else metadata.rbc.default) %}
+                        <option value="normal" {% if active_rbc == 'normal' %}selected{% endif %}>Normal</option>
+                        <option value="abnormal" {% if active_rbc == 'abnormal' %}selected{% endif %}>Abnormal (Hematuria)</option>
+                        <option value="nan" {% if active_rbc == 'nan' %}selected{% endif %}>Unknown / Not Tested</option>
+                    </select>
+                    <div class="form-helper">Detection of blood in urine</div>
+                </div>
+                
+                <!-- Pus Cell -->
+                <div class="form-group">
+                    <label class="form-label" for="pc" title="{{ metadata.pc.tooltip }}">
+                        Pus Cells in Urine
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="pc" name="pc" class="form-input" required>
+                        {% set active_pc = latest_record.pc if latest_record and latest_record.pc is defined else (latest_record.get('pc', metadata.pc.default) if latest_record else metadata.pc.default) %}
+                        <option value="normal" {% if active_pc == 'normal' %}selected{% endif %}>Normal</option>
+                        <option value="abnormal" {% if active_pc == 'abnormal' %}selected{% endif %}>Abnormal (Pyuria / Infection)</option>
+                        <option value="nan" {% if active_pc == 'nan' %}selected{% endif %}>Unknown / Not Tested</option>
+                    </select>
+                    <div class="form-helper">Detection of white blood cells</div>
+                </div>
+                
+                <!-- Pus Cell Clumps -->
+                <div class="form-group">
+                    <label class="form-label" for="pcc" title="{{ metadata.pcc.tooltip }}">
+                        Pus Cell Clumps
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="pcc" name="pcc" class="form-input" required>
+                        {% set active_pcc = latest_record.pcc if latest_record and latest_record.pcc is defined else (latest_record.get('pcc', metadata.pcc.default) if latest_record else metadata.pcc.default) %}
+                        <option value="notpresent" {% if active_pcc == 'notpresent' %}selected{% endif %}>Not Present</option>
+                        <option value="present" {% if active_pcc == 'present' %}selected{% endif %}>Present</option>
+                        <option value="nan" {% if active_pcc == 'nan' %}selected{% endif %}>Unknown</option>
+                    </select>
+                    <div class="form-helper">Clumped pus cells detection</div>
+                </div>
+                
+                <!-- Bacteria -->
+                <div class="form-group">
+                    <label class="form-label" for="ba" title="{{ metadata.ba.tooltip }}">
+                        Bacteria
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="ba" name="ba" class="form-input" required>
+                        {% set active_ba = latest_record.ba if latest_record and latest_record.ba is defined else (latest_record.get('ba', metadata.ba.default) if latest_record else metadata.ba.default) %}
+                        <option value="notpresent" {% if active_ba == 'notpresent' %}selected{% endif %}>Not Present</option>
+                        <option value="present" {% if active_ba == 'present' %}selected{% endif %}>Present</option>
+                        <option value="nan" {% if active_ba == 'nan' %}selected{% endif %}>Unknown</option>
+                    </select>
+                    <div class="form-helper">Urinic bacterial colonisation</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SECTION 3: Blood Chemistry Panels -->
+        <div style="margin-bottom: 32px;">
+            <h3 style="font-size: 1.1rem; border-bottom: 2px solid var(--primary); padding-bottom: 6px; margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+                <span style="background-color: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">3</span>
+                Blood Chemistry & Hematology Panels
+            </h3>
+            
+            <div class="clinical-grid">
+                <!-- Blood Glucose Random -->
+                <div class="form-group">
+                    <label class="form-label" for="bgr" title="{{ metadata.bgr.tooltip }}">
+                        Blood Glucose Random (mg/dL)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="bgr" name="bgr" class="form-input"
+                           min="{{ metadata.bgr.min }}" max="{{ metadata.bgr.max }}"
+                           placeholder="Range: {{ metadata.bgr.min }} - {{ metadata.bgr.max }}"
+                           value="{% if latest_record %}{% if latest_record.bgr is defined %}{{ latest_record.bgr }}{% else %}{{ latest_record.get('bgr', metadata.bgr.default) }}{% endif %}{% else %}{{ metadata.bgr.default }}{% endif %}" required>
+                    <div class="form-helper">Random blood sugar (healthy: < 140)</div>
+                </div>
+                
+                <!-- Blood Urea -->
+                <div class="form-group">
+                    <label class="form-label" for="bu" title="{{ metadata.bu.tooltip }}">
+                        Blood Urea (mg/dL)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="bu" name="bu" class="form-input"
+                           min="{{ metadata.bu.min }}" max="{{ metadata.bu.max }}"
+                           placeholder="Range: {{ metadata.bu.min }} - {{ metadata.bu.max }}"
+                           value="{% if latest_record %}{% if latest_record.bu is defined %}{{ latest_record.bu }}{% else %}{{ latest_record.get('bu', metadata.bu.default) }}{% endif %}{% else %}{{ metadata.bu.default }}{% endif %}" required>
+                    <div class="form-helper">Nitrogenous waste (healthy: 15 - 45)</div>
+                </div>
+                
+                <!-- Serum Creatinine -->
+                <div class="form-group">
+                    <label class="form-label" for="sc" title="{{ metadata.sc.tooltip }}">
+                        Serum Creatinine (mg/dL) *
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="sc" name="sc" class="form-input"
+                           min="{{ metadata.sc.min }}" max="{{ metadata.sc.max }}"
+                           placeholder="Range: {{ metadata.sc.min }} - {{ metadata.sc.max }}"
+                           value="{% if latest_record %}{% if latest_record.sc is defined %}{{ latest_record.sc }}{% else %}{{ latest_record.get('sc', metadata.sc.default) }}{% endif %}{% else %}{{ metadata.sc.default }}{% endif %}" required>
+                    <div class="form-helper">Key renal filtration index (healthy: 0.6 - 1.3)</div>
+                </div>
+                
+                <!-- Sodium -->
+                <div class="form-group">
+                    <label class="form-label" for="sod" title="{{ metadata.sod.tooltip }}">
+                        Blood Sodium (mEq/L)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="sod" name="sod" class="form-input"
+                           min="{{ metadata.sod.min }}" max="{{ metadata.sod.max }}"
+                           placeholder="Range: {{ metadata.sod.min }} - {{ metadata.sod.max }}"
+                           value="{% if latest_record %}{% if latest_record.sod is defined %}{{ latest_record.sod }}{% else %}{{ latest_record.get('sod', metadata.sod.default) }}{% endif %}{% else %}{{ metadata.sod.default }}{% endif %}" required>
+                    <div class="form-helper">Serum Sodium (healthy: 135 - 145)</div>
+                </div>
+                
+                <!-- Potassium -->
+                <div class="form-group">
+                    <label class="form-label" for="pot" title="{{ metadata.pot.tooltip }}">
+                        Blood Potassium (mEq/L)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="pot" name="pot" class="form-input"
+                           min="{{ metadata.pot.min }}" max="{{ metadata.pot.max }}"
+                           placeholder="Range: {{ metadata.pot.min }} - {{ metadata.pot.max }}"
+                           value="{% if latest_record %}{% if latest_record.pot is defined %}{{ latest_record.pot }}{% else %}{{ latest_record.get('pot', metadata.pot.default) }}{% endif %}{% else %}{{ metadata.pot.default }}{% endif %}" required>
+                    <div class="form-helper">Serum Potassium (healthy: 3.5 - 5.0)</div>
+                </div>
+                
+                <!-- Hemoglobin -->
+                <div class="form-group">
+                    <label class="form-label" for="hemo" title="{{ metadata.hemo.tooltip }}">
+                        Hemoglobin (g/dL)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="hemo" name="hemo" class="form-input"
+                           min="{{ metadata.hemo.min }}" max="{{ metadata.hemo.max }}"
+                           placeholder="Range: {{ metadata.hemo.min }} - {{ metadata.hemo.max }}"
+                           value="{% if latest_record %}{% if latest_record.hemo is defined %}{{ latest_record.hemo }}{% else %}{{ latest_record.get('hemo', metadata.hemo.default) }}{% endif %}{% else %}{{ metadata.hemo.default }}{% endif %}" required>
+                    <div class="form-helper">Blood oxygen carrier (healthy: 12 - 17.5)</div>
+                </div>
+                
+                <!-- Packed Cell Volume -->
+                <div class="form-group">
+                    <label class="form-label" for="pcv" title="{{ metadata.pcv.tooltip }}">
+                        Packed Cell Volume (%)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="pcv" name="pcv" class="form-input"
+                           min="{{ metadata.pcv.min }}" max="{{ metadata.pcv.max }}"
+                           placeholder="Range: {{ metadata.pcv.min }} - {{ metadata.pcv.max }}"
+                           value="{% if latest_record %}{% if latest_record.pcv is defined %}{{ latest_record.pcv }}{% else %}{{ latest_record.get('pcv', metadata.pcv.default) }}{% endif %}{% else %}{{ metadata.pcv.default }}{% endif %}" required>
+                    <div class="form-helper">Hematocrit percentage (healthy: 36 - 50%)</div>
+                </div>
+                
+                <!-- White Blood Cell Count -->
+                <div class="form-group">
+                    <label class="form-label" for="wc" title="{{ metadata.wc.tooltip }}">
+                        White Blood Cell Count (cells/cumm)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="wc" name="wc" class="form-input"
+                           min="{{ metadata.wc.min }}" max="{{ metadata.wc.max }}"
+                           placeholder="Range: {{ metadata.wc.min }} - {{ metadata.wc.max }}"
+                           value="{% if latest_record %}{% if latest_record.wc is defined %}{{ latest_record.wc }}{% else %}{{ latest_record.get('wc', metadata.wc.default) }}{% endif %}{% else %}{{ metadata.wc.default }}{% endif %}" required>
+                    <div class="form-helper">Immune cell panel (healthy: 4k - 11k)</div>
+                </div>
+                
+                <!-- Red Blood Cell Count -->
+                <div class="form-group">
+                    <label class="form-label" for="rc" title="{{ metadata.rc.tooltip }}">
+                        Red Blood Cell Count (million/cmm)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <input type="number" step="any" id="rc" name="rc" class="form-input"
+                           min="{{ metadata.rc.min }}" max="{{ metadata.rc.max }}"
+                           placeholder="Range: {{ metadata.rc.min }} - {{ metadata.rc.max }}"
+                           value="{% if latest_record %}{% if latest_record.rc is defined %}{{ latest_record.rc }}{% else %}{{ latest_record.get('rc', metadata.rc.default) }}{% endif %}{% else %}{{ metadata.rc.default }}{% endif %}" required>
+                    <div class="form-helper">Total RBC count (healthy: 4.2 - 5.9)</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SECTION 4: Comorbidities & History -->
+        <div style="margin-bottom: 32px;">
+            <h3 style="font-size: 1.1rem; border-bottom: 2px solid var(--primary); padding-bottom: 6px; margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+                <span style="background-color: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">4</span>
+                Patient Medical History & Comorbidities
+            </h3>
+            
+            <div class="clinical-grid">
+                <!-- Hypertension -->
+                <div class="form-group">
+                    <label class="form-label" for="htn" title="{{ metadata.htn.tooltip }}">
+                        Hypertension History
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="htn" name="htn" class="form-input" required>
+                        {% set active_htn = latest_record.htn if latest_record and latest_record.htn is defined else (latest_record.get('htn', metadata.htn.default) if latest_record else metadata.htn.default) %}
+                        <option value="no" {% if active_htn == 'no' %}selected{% endif %}>No</option>
+                        <option value="yes" {% if active_htn == 'yes' %}selected{% endif %}>Yes</option>
+                        <option value="nan" {% if active_htn == 'nan' %}selected{% endif %}>Unknown</option>
+                    </select>
+                    <div class="form-helper">History of high blood pressure</div>
+                </div>
+                
+                <!-- Diabetes Mellitus -->
+                <div class="form-group">
+                    <label class="form-label" for="dm" title="{{ metadata.dm.tooltip }}">
+                        Diabetes Mellitus History
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="dm" name="dm" class="form-input" required>
+                        {% set active_dm = latest_record.dm if latest_record and latest_record.dm is defined else (latest_record.get('dm', metadata.dm.default) if latest_record else metadata.dm.default) %}
+                        <option value="no" {% if active_dm == 'no' %}selected{% endif %}>No</option>
+                        <option value="yes" {% if active_dm == 'yes' %}selected{% endif %}>Yes</option>
+                        <option value="nan" {% if active_dm == 'nan' %}selected{% endif %}>Unknown</option>
+                    </select>
+                    <div class="form-helper">History of diabetes</div>
+                </div>
+                
+                <!-- Coronary Artery Disease -->
+                <div class="form-group">
+                    <label class="form-label" for="cad" title="{{ metadata.cad.tooltip }}">
+                        Coronary Artery Disease
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="cad" name="cad" class="form-input" required>
+                        {% set active_cad = latest_record.cad if latest_record and latest_record.cad is defined else (latest_record.get('cad', metadata.cad.default) if latest_record else metadata.cad.default) %}
+                        <option value="no" {% if active_cad == 'no' %}selected{% endif %}>No</option>
+                        <option value="yes" {% if active_cad == 'yes' %}selected{% endif %}>Yes</option>
+                        <option value="nan" {% if active_cad == 'nan' %}selected{% endif %}>Unknown</option>
+                    </select>
+                    <div class="form-helper">History of heart artery conditions</div>
+                </div>
+                
+                <!-- Appetite -->
+                <div class="form-group">
+                    <label class="form-label" for="appet" title="{{ metadata.appet.tooltip }}">
+                        Appetite Quality
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="appet" name="appet" class="form-input" required>
+                        {% set active_appet = latest_record.appet if latest_record and latest_record.appet is defined else (latest_record.get('appet', metadata.appet.default) if latest_record else metadata.appet.default) %}
+                        <option value="good" {% if active_appet == 'good' %}selected{% endif %}>Good</option>
+                        <option value="poor" {% if active_appet == 'poor' %}selected{% endif %}>Poor</option>
+                        <option value="nan" {% if active_appet == 'nan' %}selected{% endif %}>Unknown</option>
+                    </select>
+                    <div class="form-helper">Appetite quality grading</div>
+                </div>
+                
+                <!-- Pedal Edema -->
+                <div class="form-group">
+                    <label class="form-label" for="pe" title="{{ metadata.pe.tooltip }}">
+                        Pedal Edema (Feet Swelling)
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="pe" name="pe" class="form-input" required>
+                        {% set active_pe = latest_record.pe if latest_record and latest_record.pe is defined else (latest_record.get('pe', metadata.pe.default) if latest_record else metadata.pe.default) %}
+                        <option value="no" {% if active_pe == 'no' %}selected{% endif %}>No</option>
+                        <option value="yes" {% if active_pe == 'yes' %}selected{% endif %}>Yes</option>
+                        <option value="nan" {% if active_pe == 'nan' %}selected{% endif %}>Unknown</option>
+                    </select>
+                    <div class="form-helper">Presence of fluid ankle swelling</div>
+                </div>
+                
+                <!-- Anemia -->
+                <div class="form-group">
+                    <label class="form-label" for="ane" title="{{ metadata.ane.tooltip }}">
+                        Anemia
+                        <span style="color: var(--primary); cursor: help;">ⓘ</span>
+                    </label>
+                    <select id="ane" name="ane" class="form-input" required>
+                        {% set active_ane = latest_record.ane if latest_record and latest_record.ane is defined else (latest_record.get('ane', metadata.ane.default) if latest_record else metadata.ane.default) %}
+                        <option value="no" {% if active_ane == 'no' %}selected{% endif %}>No</option>
+                        <option value="yes" {% if active_ane == 'yes' %}selected{% endif %}>Yes</option>
+                        <option value="nan" {% if active_ane == 'nan' %}selected{% endif %}>Unknown</option>
+                    </select>
+                    <div class="form-helper">Diagnosed clinical anemia history</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Panel -->
+        <div style="display: flex; gap: 12px; border-top: 1px solid var(--border); padding-top: 24px; margin-top: 20px;">
+            <button type="submit" class="btn btn-primary" style="padding: 12px 28px;">
+                Calculate CKD Risk (Ensemble Inference)
+            </button>
+            <a href="{{ url_for('patients.view_patient', id=patient.id) }}" class="btn btn-secondary" style="padding: 12px 28px;">
+                Cancel
+            </a>
+        </div>
+        
+    </form>
+</div>
+{% endblock %}

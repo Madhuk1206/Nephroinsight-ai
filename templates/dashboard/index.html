@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div style="margin-bottom: 28px;">
+    <h1 style="font-size: 1.75rem; margin-bottom: 4px;">Clinical Analytics Dashboard</h1>
+    <p>Real-time clinical metrics, kidney risk trends, and explainable AI insights.</p>
+</div>
+
+<!-- KPI Cards Grid -->
+<div class="grid-cols-4">
+    
+    <div class="card-widget">
+        <div class="widget-header">
+            <span class="widget-label">Total Patients</span>
+            <span class="widget-icon">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"></path>
+                </svg>
+            </span>
+        </div>
+        <div class="widget-value">{{ total_patients }}</div>
+        <div class="widget-sub">Registered in clinic registry</div>
+    </div>
+    
+    <div class="card-widget">
+        <div class="widget-header">
+            <span class="widget-label">Predictions</span>
+            <span class="widget-icon" style="color: var(--accent);">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+            </span>
+        </div>
+        <div class="widget-value">{{ total_predictions }}</div>
+        <div class="widget-sub">Ensemble inferences run</div>
+    </div>
+    
+    <div class="card-widget">
+        <div class="widget-header">
+            <span class="widget-label">Today's Patients</span>
+            <span class="widget-icon" style="color: var(--warning);">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2m9-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm9 1v-3m-3 3h6"></path>
+                </svg>
+            </span>
+        </div>
+        <div class="widget-value">{{ today_patients }}</div>
+        <div class="widget-sub">New registrations today</div>
+    </div>
+    
+    <div class="card-widget">
+        <div class="widget-header">
+            <span class="widget-label">Average Risk</span>
+            <span class="widget-icon" style="color: var(--danger);">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                </svg>
+            </span>
+        </div>
+        <div class="widget-value">{{ avg_risk }}%</div>
+        <div class="widget-sub">
+            High Risk Cases: <b>{{ high_risk_cases }}</b>
+        </div>
+    </div>
+    
+</div>
+
+<!-- Charts Grid -->
+<div class="grid-cols-2">
+    <!-- Risk & Demographics Charts -->
+    <div class="form-card" style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+        <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 0;">Risk & Age Demographics</h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; justify-items: center;">
+            <div style="width: 100%; max-width: 180px;">
+                <h4 style="font-size: 0.8rem; text-align: center; color: var(--text-muted); margin-bottom: 8px;">RISK PATTERNS</h4>
+                <canvas id="riskChart"></canvas>
+            </div>
+            
+            <div style="width: 100%; max-width: 180px;">
+                <h4 style="font-size: 0.8rem; text-align: center; color: var(--text-muted); margin-bottom: 8px;">AGE GROUPS</h4>
+                <canvas id="ageChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Global SHAP Explanation Card -->
+    <div class="form-card" style="padding: 24px; display: flex; flex-direction: column; gap: 10px;">
+        <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 0;">Global Feature Importance</h3>
+        <div style="text-align: center; flex-grow: 1; display: flex; align-items: center; justify-content: center;">
+            <img src="{{ url_for('static', filename='xai_plots/global_summary.png') }}" alt="Global Feature Importance Summary" style="max-width: 100%; height: auto; max-height: 200px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+        </div>
+    </div>
+</div>
+
+<!-- Activity & Tables Split -->
+<div class="grid-cols-3" style="grid-template-columns: 2fr 1fr;">
+    
+    <!-- Recent Inferences Table -->
+    <div class="table-container" style="margin-bottom: 0;">
+        <div class="table-header">
+            <h3 class="table-title">Recent Inferences Run</h3>
+            <a href="{{ url_for('patients.list_patients') }}" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px;">Patients List</a>
+        </div>
+        {% if recent_predictions %}
+        <table class="clinical-table">
+            <thead>
+                <tr>
+                    <th>Patient</th>
+                    <th>Date & Time</th>
+                    <th>Risk Score</th>
+                    <th>Outcome</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pred in recent_predictions %}
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">{{ pred.patient.name }}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ pred.patient.patient_id }}</div>
+                    </td>
+                    <td style="font-size: 0.85rem;">{{ pred.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td style="font-weight: bold; color: {% if pred.prediction_outcome == 'CKD Positive' %}var(--danger){% else %}var(--success){% endif %};">
+                        {{ round(pred.risk_probability * 100, 1) }}%
+                    </td>
+                    <td>
+                        <span class="badge {% if pred.prediction_outcome == 'CKD Positive' %}badge-positive{% else %}badge-negative{% endif %}">
+                            {{ pred.prediction_outcome }}
+                        </span>
+                    </td>
+                    <td style="text-align: right;">
+                        <a href="{{ url_for('predictions.prediction_result', id=pred.id) }}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">View Report</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+            No predictions run yet. Select a patient from the Directory to evaluate risk.
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Activity Feed -->
+    <div class="form-card" style="padding: 24px; margin-bottom: 0; display: flex; flex-direction: column;">
+        <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 20px;">Recent Activity Feed</h3>
+        
+        <div class="timeline" style="flex-grow: 1;">
+            {% for act in activities %}
+            <div class="timeline-item">
+                <div class="timeline-marker {% if act.type == 'prediction_made' %}{% if 'Positive' in act.desc %}positive{% else %}negative{% endif %}{% endif %}"></div>
+                <div class="timeline-date">{{ act.time.strftime('%H:%M • %b %d') }}</div>
+                <div class="timeline-title">{{ act.title }}</div>
+                <div class="timeline-content">{{ act.desc }}</div>
+            </div>
+            {% else %}
+            <div style="text-align: center; color: var(--text-muted); margin-top: 40px;">
+                No activities logged.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+</div>
+
+<!-- Chart.js scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // 1. Risk Chart
+    const riskCtx = document.getElementById('riskChart').getContext('2d');
+    new Chart(riskCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Low Risk (<30%)', 'Mod Risk (30-70%)', 'High Risk (>=70%)'],
+            datasets: [{
+                data: [{{ risk_dist.low }}, {{ risk_dist.mod }}, {{ risk_dist.high }}],
+                backgroundColor: ['#16A34A', '#F59E0B', '#DC2626'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            cutout: '65%'
+        }
+    });
+
+    // 2. Age Chart
+    const ageCtx = document.getElementById('ageChart').getContext('2d');
+    new Chart(ageCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Under 30', '30-45', '46-60', '61-75', 'Over 75'],
+            datasets: [{
+                data: [
+                    {{ age_dist.under_30 }},
+                    {{ age_dist.age_30_45 }},
+                    {{ age_dist.age_46_60 }},
+                    {{ age_dist.age_61_75 }},
+                    {{ age_dist.over_75 }}
+                ],
+                backgroundColor: ['#2563EB', '#0EA5E9', '#14B8A6', '#F59E0B', '#DC2626'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
+{% endblock %}

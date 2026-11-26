@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>403 — Access Denied</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-page">
+    <div class="auth-card" style="text-align: center;">
+        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color: var(--danger); margin-bottom: 16px;">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <h2 style="font-size: 1.5rem; margin-bottom: 8px;">403 — Access Denied</h2>
+        <p style="margin-bottom: 24px;">Your clinical privileges role does not authorize access to this module or operation.</p>
+        <a href="/" class="btn btn-primary" style="width: 100%;">Return to Home Dashboard</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Results Header -->
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 20px;">
+    <div>
+        <span class="badge" style="background-color: var(--background); border: 1px solid var(--border); color: var(--text-muted); margin-bottom: 8px;">
+            Report ID: {{ prediction.report_id }}
+        </span>
+        <h1 style="font-size: 1.75rem; margin-bottom: 4px;">Kidney Health Assessment Results</h1>
+        <p>Patient Profile: <b>{{ patient.name }}</b> (ID: {{ patient.patient_id }} • DOB: {{ patient.dob.strftime('%Y-%m-%d') }})</p>
+    </div>
+    
+    <div style="display: flex; gap: 8px;">
+        <a href="{{ url_for('patients.view_patient', id=patient.id) }}" class="btn btn-secondary">
+            Patient Profile
+        </a>
+        
+        {% if prediction.report_id %}
+        <a href="{{ url_for('predictions.download_report', report_id=prediction.report_id) }}" target="_blank" class="btn btn-primary" style="display: flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m4-5l5 5 5-5m-5 5V3"></path>
+            </svg>
+            Print PDF Clinical Report
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Primary Diagnostic split -->
+<div class="grid-cols-3" style="grid-template-columns: 1fr 2fr;">
+    
+    <!-- Left Card: Risk Evaluation and Gauge -->
+    <div class="form-card risk-gauge-card" style="justify-content: center; min-height: 280px;">
+        <div class="widget-label">CKD Risk Evaluation</div>
+        
+        {% set risk_pct = round(prediction.risk_probability * 100, 2) %}
+        <div class="risk-value-large" style="color: {% if prediction.prediction_outcome == 'CKD Positive' %}var(--danger){% else %}var(--success){% endif %};">
+            {{ risk_pct }}%
+        </div>
+        
+        <div class="risk-outcome-label" style="color: {% if prediction.prediction_outcome == 'CKD Positive' %}var(--danger){% else %}var(--success){% endif %}; margin-bottom: 12px;">
+            {{ prediction.prediction_outcome }}
+        </div>
+        
+        <p style="font-size: 0.8rem; margin-bottom: 16px;">
+            Threshold: <b>{{ prediction.threshold_used * 100 }}%</b> | Model: <b>Hybrid Soft Voting</b>
+        </p>
+        
+        <div class="risk-progress-bar">
+            <div class="risk-progress-fill" style="width: {{ risk_pct }}%; background-color: {% if prediction.prediction_outcome == 'CKD Positive' %}var(--danger){% else %}var(--success){% endif %};"></div>
+        </div>
+    </div>
+    
+    <!-- Right Card: Narrative Explanations Split -->
+    <div class="form-card" style="padding: 24px;">
+        <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;">Decision Interpretations</h3>
+        
+        <div class="explanation-split">
+            
+            <div class="explanation-panel">
+                <div class="explanation-title" style="color: var(--primary);">Clinician Diagnostics Summary</div>
+                <p style="font-size: 0.85rem; line-height: 1.6; color: var(--text);">
+                    {{ prediction.doctor_notes }}
+                </p>
+            </div>
+            
+            <div class="explanation-panel">
+                <div class="explanation-title" style="color: var(--accent);">Patient Translation Summary</div>
+                <p style="font-size: 0.85rem; line-height: 1.6; color: var(--text);">
+                    {{ patient_explanation }}
+                </p>
+            </div>
+            
+        </div>
+    </div>
+    
+</div>
+
+<!-- XAI Visualizations Tabs / Split -->
+<div class="grid-cols-2">
+    
+    <!-- SHAP Waterfall Visual -->
+    <div class="form-card" style="padding: 24px;">
+        <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 18px;">SHAP attributions (Waterfall Chart)</h3>
+        {% if prediction.shap_waterfall_path %}
+        <div class="xai-plot-container">
+            <img src="{{ url_for('static', filename=prediction.shap_waterfall_path) }}" alt="SHAP waterfall chart" class="xai-plot-image">
+            <p style="font-size: 0.8rem; text-align: center; max-width: 90%;">
+                <b>Waterfall Interpretation:</b> The horizontal bars show how much each clinical parameter pushed the model prediction risk higher (red) or lower (blue) compared to the base average prediction.
+            </p>
+        </div>
+        {% else %}
+        <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+            SHAP Waterfall image was not generated for this prediction.
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- LIME Feature Importance Visual -->
+    <div class="form-card" style="padding: 24px;">
+        <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 18px;">LIME Local Contributions (Coefficients)</h3>
+        {% if prediction.lime_plot_path %}
+        <div class="xai-plot-container">
+            <img src="{{ url_for('static', filename=prediction.lime_plot_path) }}" alt="LIME contribution chart" class="xai-plot-image">
+            <p style="font-size: 0.8rem; text-align: center; max-width: 90%;">
+                <b>LIME Interpretation:</b> Local surrogate weights showing the relative influence of clinical parameters for the neighborhood of this patient's feature vector.
+            </p>
+        </div>
+        {% else %}
+        <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+            LIME Pyplot image was not generated for this prediction.
+        </div>
+        {% endif %}
+    </div>
+    
+</div>
+
+<!-- LIME Table & Recommendations split -->
+<div class="grid-cols-3" style="grid-template-columns: 1fr 2fr; align-items: stretch;">
+    
+    <!-- LIME Feature List table -->
+    <div class="table-container" style="margin-bottom: 0; display: flex; flex-direction: column;">
+        <div class="table-header">
+            <h3 class="table-title" style="font-size: 1rem;">Local Weights Table</h3>
+        </div>
+        <table class="clinical-table" style="flex-grow: 1;">
+            <thead>
+                <tr>
+                    <th>Feature Rule</th>
+                    <th style="text-align: right;">Weight</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for feat, weight in lime_list %}
+                <tr>
+                    <td style="font-size: 0.8rem; font-weight: 500;">
+                        {{ feat }}
+                    </td>
+                    <td style="text-align: right; font-weight: bold; font-size: 0.8rem; color: {% if weight < 0 %}var(--danger){% else %}var(--success){% endif %};">
+                        {{ round(weight, 4) }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                        No weights compiled.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Recommendations Cards -->
+    <div class="form-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+        <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 20px;">Clinical Recommendations Engine</h3>
+        
+        <div class="recommendations-group">
+            
+            {% if recommendations.emergency_alerts %}
+            <div class="recommendations-card danger">
+                <h4 style="font-size: 0.9rem; color: var(--danger); font-weight: 700;">🚨 Critical Alerts / Warnings</h4>
+                <ul class="recommendation-list">
+                    {% for alert in recommendations.emergency_alerts %}
+                    <li style="color: var(--danger); font-weight: 600;">{{ alert }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <div class="recommendations-card" style="border-left-color: var(--primary);">
+                <h4 style="font-size: 0.9rem; color: var(--primary);">Clinical Follow-up & Lab Orders</h4>
+                <ul class="recommendation-list">
+                    {% for follow in recommendations.clinical_followups %}
+                    <li><b>Follow-up:</b> {{ follow }}</li>
+                    {% endfor %}
+                    {% for test in recommendations.laboratory_tests %}
+                    <li><b>Lab Test:</b> {{ test }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <div class="recommendations-card" style="border-left-color: var(--accent);">
+                <h4 style="font-size: 0.9rem; color: var(--accent);">Dietary & Fluid Management</h4>
+                <ul class="recommendation-list">
+                    {% for d in recommendations.diet_suggestions %}
+                    <li><b>Diet:</b> {{ d }}</li>
+                    {% endfor %}
+                    {% for h in recommendations.hydration_advice %}
+                    <li><b>Hydration:</b> {{ h }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <div class="recommendations-card" style="border-left-color: var(--warning);">
+                <h4 style="font-size: 0.9rem; color: var(--warning);">Lifestyle & Exercise Plans</h4>
+                <ul class="recommendation-list">
+                    {% for l in recommendations.lifestyle_advice %}
+                    <li>{{ l }}</li>
+                    {% endfor %}
+                    {% for ex in recommendations.exercise_suggestions %}
+                    <li><b>Exercise:</b> {{ ex }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+        </div>
+    </div>
+    
+</div>
+
+<!-- Doctor Notes Custom Editor (Task Flow) -->
+<div class="form-card" style="margin-top: 24px; padding: 24px;">
+    <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;">attending Physician Diagnostics Remarks</h3>
+    <p style="margin-bottom: 16px;">You can customize the clinical summary narrative below. Saving updates will store the notes in the database and automatically re-compile the printable PDF medical report.</p>
+    
+    <form action="{{ url_for('predictions.update_notes', id=prediction.id) }}" method="POST">
+        <div class="form-group" style="margin-bottom: 16px;">
+            <textarea id="doctor_notes" name="doctor_notes" class="form-input" rows="5" style="font-family: inherit; font-size: 0.9rem; line-height: 1.6;" placeholder="Type diagnostic, staging notes, or clinical instructions here...">{{ prediction.doctor_notes }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="padding: 10px 24px;">
+            Save Notes & Recompile PDF Report
+        </button>
+    </form>
+</div>
+{% endblock %}
